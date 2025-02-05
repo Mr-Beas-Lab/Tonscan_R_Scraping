@@ -1,0 +1,157 @@
+---
+title: "TON - MRB swaps analysis"
+author: "Sergio López Olvera"
+date: "2025-01-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+data <- read_csv("extracted_table_data.csv")
+```
+
+# Data extraction
+
+Data was extracted from "https://tonscan.org/jetton/EQC18yLE5Ad71VntcIwaMq_PwAW1o2-0CCoH_sTfcdRc7rWZ#swaps" the 4th of january at 6:43 pm and it was organizaed in a dataframe. Then it was wrangled to obtain transaction times and separate TON quantities from MRB as shown below.
+
+```{r}
+head(data) %>%
+  kable(format = "latex", booktabs = TRUE) %>%
+  kable_styling(latex_options = c("scale_down"))  # Automatically scales the table
+```
+
+# Exploratory analysis
+
+## Swap values distrubution
+
+### Summary
+
+```{r}
+data %>%
+  summarize(
+    Total_TON = sum(Value_TON, na.rm = TRUE),
+    Total_MRB = sum(Value_MRB, na.rm = TRUE),
+    Average_TON = mean(Value_TON, na.rm = TRUE),
+    Average_MRB = mean(Value_MRB, na.rm = TRUE),
+    Maximum_TON = max(Value_TON, na.rm = TRUE),
+    Maximum_MRB = max(Value_MRB, na.rm = TRUE)
+  ) %>%
+  knitr::kable(caption = "TON and MRB total, average and maximum swap values")
+```
+
+### TON swap values
+
+```{r}
+ggplot(data, aes(x = Value_TON)) +
+  geom_histogram(bins = 30, fill = "blue", alpha = 0.7) +
+  scale_x_log10() +
+  labs(title = "Distribution of TON swap values", x = "TON (log10)", y = "Frequency") +
+  theme_minimal()
+```
+
+### MRB swap values
+
+```{r}
+ggplot(data, aes(x = Value_MRB)) +
+  geom_histogram(bins = 30, fill = "blue", alpha = 0.7) +
+  scale_x_log10() +
+  labs(title = "Distribution of MRB swap values", x = "MRB (log10)", y = "Frequency") +
+  theme_minimal()
+```
+
+### Relation between TON and MRB
+
+```{r}
+ggplot(data, aes(x = Value_TON, y = Value_MRB)) +
+  geom_point(alpha = 0.7) +
+  scale_x_log10() +
+  scale_y_log10() +
+  labs(title = "Relationship between TON and MRB", x = "TON (log10)", y = "MRB (log10)") +
+  theme_minimal()
+```
+
+## Temporal analysis
+
+### Daily
+
+```{r}
+data %>%
+  mutate(Transaction_Date = as.Date(Transaction_Time)) %>%
+  group_by(Transaction_Date) %>%
+  summarize(
+    Daily_TON = sum(Value_TON, na.rm = TRUE),
+    Daily_MRB = sum(Value_MRB, na.rm = TRUE),
+    Transactions = n()
+  ) %>%
+  knitr::kable(caption = "Daily Transaction values and volume")
+
+# Gráfico de transacciones diarias
+data %>%
+  mutate(Transaction_Date = as.Date(Transaction_Time)) %>%
+  group_by(Transaction_Date) %>%
+  summarize(
+    Daily_TON = sum(Value_TON, na.rm = TRUE),
+    Daily_MRB = sum(Value_MRB, na.rm = TRUE),
+    Transactions = n()
+  ) %>%
+  ggplot(aes(x = Transaction_Date)) +
+  geom_line(aes(y = Daily_TON, color = "TON")) +
+  labs(title = "Daily Transactions: TON",
+       x = "Date",
+       y = "Total Value") +
+  scale_color_manual(values = c("TON" = "blue")) +
+  theme_minimal()
+
+# Gráfico de transacciones diarias
+data %>%
+  mutate(Transaction_Date = as.Date(Transaction_Time)) %>%
+  group_by(Transaction_Date) %>%
+  summarize(
+    Daily_TON = sum(Value_TON, na.rm = TRUE),
+    Daily_MRB = sum(Value_MRB, na.rm = TRUE),
+    Transactions = n()
+  ) %>%
+  ggplot(aes(x = Transaction_Date)) +
+  geom_line(aes(y = Daily_MRB, color = "MRB")) +
+  labs(title = "Daily Transactions: MRB",
+       x = "Date",
+       y = "Total Value") +
+  scale_color_manual(values = c("MRB" = "red")) +
+  theme_minimal()
+
+# Calcular el ratio MRB / TON por día
+data %>%
+  mutate(Transaction_Date = as.Date(Transaction_Time)) %>%
+  group_by(Transaction_Date) %>%
+  summarize(
+    Total_TON = sum(Value_TON, na.rm = TRUE),
+    Total_MRB = sum(Value_MRB, na.rm = TRUE),
+    MRB_per_TON = ifelse(Total_TON > 0, Total_MRB / Total_TON, NA)  # Evitar división entre 0
+  ) %>%
+  ggplot(aes(x = Transaction_Date, y = MRB_per_TON)) +
+  geom_line(color = "purple", size = 1) +
+  labs(
+    title = "Daily MRB / TON Ratio",
+    x = "Date",
+    y = "MRB per TON"
+  ) +
+  theme_minimal()
+```
+
+### Weekly
+
+```{r}
+data %>%
+  mutate(Transaction_Week = floor_date(Transaction_Time, unit = "week")) %>%
+  group_by(Transaction_Week) %>%
+  summarize(
+    Weekly_TON = sum(Value_TON, na.rm = TRUE),
+    Weekly_MRB = sum(Value_MRB, na.rm = TRUE),
+    Transactions = n()
+  ) %>%
+  knitr::kable(caption = "Weekley swaps total value and volume")
+```
+
